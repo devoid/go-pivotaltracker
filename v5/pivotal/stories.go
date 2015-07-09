@@ -2,14 +2,12 @@
 // Copyright (C) 2015 Scott Devoid
 // Use of this source code is governed by the MIT License.
 // The license can be found in the LICENSE file.
-
 package pivotal
 
 import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"time"
 )
 
@@ -57,15 +55,6 @@ type Story struct {
 	Kind          string     `json:"kind,omitempty"`
 }
 
-type Label struct {
-	Id        int        `json:"id,omitempty"`
-	ProjectId int        `json:"project_id,omitempty"`
-	Name      string     `json:"name,omitempty"`
-	CreatedAt *time.Time `json:"created_at,omitempty"`
-	UpdatedAt *time.Time `json:"updated_at,omitempty"`
-	Kind      string     `json:"kind,omitempty"`
-}
-
 type Task struct {
 	Id          int        `json:"id,omitempty"`
 	StoryId     int        `json:"story_id,omitempty"`
@@ -100,26 +89,34 @@ type Comment struct {
 }
 
 type StoryService struct {
-	client *Client
+	client    *Client
+	projectId string
 }
 
-func newStoryService(client *Client) *StoryService {
-	return &StoryService{client}
+func newStoryService(client *Client, projectId string) *StoryService {
+	return &StoryService{client, projectId}
 }
 
-func (service *StoryService) List(projectId int, filter string) ([]*Story, *http.Response, error) {
-	u := fmt.Sprintf("projects/%v/stories", projectId)
-	if filter != "" {
-		u += "?filter=" + url.QueryEscape(filter)
+func (s *StoryService) setupReq(opts []RequestOption) (req *http.Request, err error) {
+	u := fmt.Sprintf("projects/%v/stories", s.projectId)
+	req, err = s.client.NewRequest("GET", u, nil)
+	if err != nil {
+		return
 	}
+	for _, opt := range opts {
+		opt(req)
+	}
+	return
+}
 
-	req, err := service.client.NewRequest("GET", u, nil)
+func (s *StoryService) List(opts ...RequestOption) ([]*Story, *http.Response, error) {
+	req, err := s.setupReq(opts)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var stories []*Story
-	resp, err := service.client.Do(req, &stories)
+	resp, err := s.client.Do(req, &stories)
 	if err != nil {
 		return nil, resp, err
 	}
@@ -148,21 +145,17 @@ func (c *StoryCursor) Next() (s *Story, err error) {
 	return s, err
 }
 
-func (service *StoryService) Iterate(projectId int, filter string) (c *StoryCursor, err error) {
+func (s *StoryService) Iterate(opts ...RequestOption) (c *StoryCursor, err error) {
 	req_fn := func() (req *http.Request) {
-		u := fmt.Sprintf("projects/%v/stories", projectId)
-		if filter != "" {
-			u += "?filter=" + url.QueryEscape(filter)
-		}
-		req, _ = service.client.NewRequest("GET", u, nil)
+		req, _ = s.setupReq(opts)
 		return req
 	}
-	cc, err := newCursor(service.client, req_fn, 10)
+	cc, err := newCursor(s.client, req_fn, 10)
 	return &StoryCursor{cc, make([]*Story, 0)}, err
 }
 
-func (service *StoryService) Get(projectId, storyId int) (*Story, *http.Response, error) {
-	u := fmt.Sprintf("projects/%v/stories/%v", projectId, storyId)
+func (service *StoryService) Get(storyId int) (*Story, *http.Response, error) {
+	u := fmt.Sprintf("projects/%v/stories/%v", service.projectId, storyId)
 	req, err := service.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -177,8 +170,8 @@ func (service *StoryService) Get(projectId, storyId int) (*Story, *http.Response
 	return &story, resp, err
 }
 
-func (service *StoryService) Update(projectId, storyId int, story *Story) (*Story, *http.Response, error) {
-	u := fmt.Sprintf("projects/%v/stories/%v", projectId, storyId)
+func (service *StoryService) Update(storyId int, story *Story) (*Story, *http.Response, error) {
+	u := fmt.Sprintf("projects/%v/stories/%v", service.projectId, storyId)
 	req, err := service.client.NewRequest("PUT", u, story)
 	if err != nil {
 		return nil, nil, err
@@ -194,8 +187,8 @@ func (service *StoryService) Update(projectId, storyId int, story *Story) (*Stor
 
 }
 
-func (service *StoryService) ListTasks(projectId, storyId int) ([]*Task, *http.Response, error) {
-	u := fmt.Sprintf("projects/%v/stories/%v/tasks", projectId, storyId)
+func (service *StoryService) ListTasks(storyId int) ([]*Task, *http.Response, error) {
+	u := fmt.Sprintf("projects/%v/stories/%v/tasks", service.projectId, storyId)
 	req, err := service.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -210,12 +203,12 @@ func (service *StoryService) ListTasks(projectId, storyId int) ([]*Task, *http.R
 	return tasks, resp, err
 }
 
-func (service *StoryService) AddTask(projectId, storyId int, task *Task) (*http.Response, error) {
+func (service *StoryService) AddTask(storyId int, task *Task) (*http.Response, error) {
 	if task.Description == "" {
 		return nil, &ErrFieldNotSet{"description"}
 	}
 
-	u := fmt.Sprintf("projects/%v/stories/%v/tasks", projectId, storyId)
+	u := fmt.Sprintf("projects/%v/stories/%v/tasks", service.projectId, storyId)
 	req, err := service.client.NewRequest("POST", u, task)
 	if err != nil {
 		return nil, err
@@ -224,8 +217,8 @@ func (service *StoryService) AddTask(projectId, storyId int, task *Task) (*http.
 	return service.client.Do(req, nil)
 }
 
-func (service *StoryService) ListOwners(projectId, storyId int) ([]*Person, *http.Response, error) {
-	u := fmt.Sprintf("projects/%d/stories/%d/owners", projectId, storyId)
+func (service *StoryService) ListOwners(storyId int) ([]*Person, *http.Response, error) {
+	u := fmt.Sprintf("projects/%d/stories/%d/owners", service.projectId, storyId)
 	req, err := service.client.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, nil, err
@@ -240,13 +233,8 @@ func (service *StoryService) ListOwners(projectId, storyId int) ([]*Person, *htt
 	return owners, resp, err
 }
 
-func (service *StoryService) AddComment(
-	projectId int,
-	storyId int,
-	comment *Comment,
-) (*Comment, *http.Response, error) {
-
-	u := fmt.Sprintf("projects/%v/stories/%v/comments", projectId, storyId)
+func (service *StoryService) AddComment(storyId int, comment *Comment) (*Comment, *http.Response, error) {
+	u := fmt.Sprintf("projects/%v/stories/%v/comments", service.projectId, storyId)
 	req, err := service.client.NewRequest("POST", u, comment)
 	if err != nil {
 		return nil, nil, err

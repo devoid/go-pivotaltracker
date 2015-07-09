@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 const (
@@ -38,7 +39,7 @@ type Client struct {
 	Me *MeService
 
 	// Story service
-	Stories *StoryService
+	Stories *StoryServiceShim
 }
 
 func NewClient(apiToken string) *Client {
@@ -50,7 +51,7 @@ func NewClient(apiToken string) *Client {
 		userAgent: defaultUserAgent,
 	}
 	client.Me = newMeService(client)
-	client.Stories = newStoryService(client)
+	client.Stories = newStoryServiceShim(client)
 	return client
 }
 
@@ -123,4 +124,23 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 	}
 
 	return resp, err
+}
+
+// ProjectService provides endpoints beneath '/projects/:id' in the Pivotal API
+type ProjectService struct {
+	*Client
+	Stories *StoryService
+	Labels  *LabelService
+}
+
+func newProjectService(c *Client, projectId int) *ProjectService {
+	p := &ProjectService{Client: c}
+	id := strconv.Itoa(projectId)
+	p.Stories = newStoryService(p.Client, id)
+	p.Labels = newLabelService(p.Client, id)
+	return p
+}
+
+func (c *Client) Project(id int) *ProjectService {
+	return newProjectService(c, id)
 }

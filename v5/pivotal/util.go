@@ -1,8 +1,7 @@
-/*
+// Copyright (C) 2015 Scott Devoid
+// Use of this source code is governed by the MIT License.
+// The license can be found in the LICENSE file.
 
-   Copyright (C) 2015 Scott Devoid
-
-*/
 package pivotal
 
 import (
