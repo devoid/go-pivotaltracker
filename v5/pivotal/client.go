@@ -131,6 +131,7 @@ type ProjectService struct {
 	*Client
 	Stories *StoryService
 	Labels  *LabelService
+	Epics   *EpicService
 }
 
 func newProjectService(c *Client, projectId int) *ProjectService {
@@ -138,6 +139,7 @@ func newProjectService(c *Client, projectId int) *ProjectService {
 	id := strconv.Itoa(projectId)
 	p.Stories = newStoryService(p.Client, id)
 	p.Labels = newLabelService(p.Client, id)
+	p.Epics = newEpicService(p.Client, id)
 	return p
 }
 
