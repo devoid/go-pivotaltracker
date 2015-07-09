@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	//	"strconv"
+	"sync"
 	"time"
 )
 
@@ -78,6 +78,7 @@ func (s *IterationService) List(opts ...RequestOption) ([]*Iteration, *http.Resp
 type IterationCursor struct {
 	*cursor
 	buff []*Iteration
+	lock *sync.Mutex
 }
 
 func (c *IterationCursor) Next() (i *Iteration, err error) {
@@ -101,7 +102,11 @@ func (s *IterationService) Iterate(opts ...RequestOption) (c *IterationCursor, e
 		return req
 	}
 	cc, err := newCursor((s).Client, req_fn)
-	return &IterationCursor{cc, make([]*Iteration, 0)}, err
+	return &IterationCursor{
+		cursor: cc,
+		buff:   make([]*Iteration, 0),
+		lock:   &sync.Mutex{},
+	}, err
 }
 
 func (s *IterationService) OverrideIteration(o IterationOverrideRequest) (

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"sync"
 )
 
 // requestFn is a function that returns a new *http.Request object.
@@ -21,11 +22,17 @@ type cursor struct {
 	limit     int
 	offset    int
 	reqCount  int
+	lock      *sync.Mutex
 }
 
 func newCursor(client *Client, fn requestFn) (c *cursor, err error) {
 	// Default to 10 items, which seems to be what Pivotal natively returns.
-	return &cursor{client: client, requestFn: fn, limit: 10}, nil
+	return &cursor{
+		client:    client,
+		requestFn: fn,
+		limit:     10,
+		lock:      &sync.Mutex{},
+	}, nil
 }
 
 // next is called with a pointer to an []*Type, which will be correctly
@@ -33,7 +40,8 @@ func newCursor(client *Client, fn requestFn) (c *cursor, err error) {
 // already closed and an error. When next() reaches the end of a paginated
 // endpoint, it returns io.EOF as the error.
 func (c *cursor) next(v interface{}) (resp *http.Response, err error) {
-
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	req := c.requestFn()
 
 	// Note: if we've already made requests, we always update

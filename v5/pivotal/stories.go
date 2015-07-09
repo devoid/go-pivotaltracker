@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -127,9 +128,12 @@ func (s *StoryService) List(opts ...RequestOption) ([]*Story, *http.Response, er
 type StoryCursor struct {
 	*cursor
 	buff []*Story
+	lock *sync.Mutex
 }
 
 func (c *StoryCursor) Next() (s *Story, err error) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	if len(c.buff) == 0 {
 		_, err = c.next(&c.buff)
 		if err != nil {
@@ -151,7 +155,11 @@ func (s *StoryService) Iterate(opts ...RequestOption) (c *StoryCursor, err error
 		return req
 	}
 	cc, err := newCursor(s.client, req_fn)
-	return &StoryCursor{cc, make([]*Story, 0)}, err
+	return &StoryCursor{
+		cursor: cc,
+		buff:   make([]*Story, 0),
+		lock:   &sync.Mutex{},
+	}, err
 }
 
 func (service *StoryService) Get(storyId int) (*Story, *http.Response, error) {
