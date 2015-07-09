@@ -129,9 +129,10 @@ func (c *Client) Do(req *http.Request, v interface{}) (*http.Response, error) {
 // ProjectService provides endpoints beneath '/projects/:id' in the Pivotal API
 type ProjectService struct {
 	*Client
-	Stories *StoryService
-	Labels  *LabelService
-	Epics   *EpicService
+	Stories    *StoryService
+	Labels     *LabelService
+	Epics      *EpicService
+	Iterations *IterationService
 }
 
 func newProjectService(c *Client, projectId int) *ProjectService {
@@ -140,6 +141,7 @@ func newProjectService(c *Client, projectId int) *ProjectService {
 	p.Stories = newStoryService(p.Client, id)
 	p.Labels = newLabelService(p.Client, id)
 	p.Epics = newEpicService(p.Client, id)
+	p.Iterations = newIterationService(p.Client, id)
 	return p
 }
 

@@ -60,6 +60,12 @@ func Filter(s string) RequestOption {
 	}
 }
 
+func WithScope(scope string) RequestOption {
+	return func(r *http.Request) {
+		urlAddParam(r, "scope", scope)
+	}
+}
+
 func urlAddParam(r *http.Request, k, v string) {
 	query := r.URL.Query()
 	query.Add(k, v)
