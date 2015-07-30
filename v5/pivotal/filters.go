@@ -12,6 +12,18 @@ import (
 
 type RequestOption func(*http.Request)
 
+func Limit(i int) RequestOption {
+	return func(r *http.Request) {
+		urlAddParam(r, "limit", strconv.Itoa(i))
+	}
+}
+
+func Offset(i int) RequestOption {
+	return func(r *http.Request) {
+		urlAddParam(r, "offset", strconv.Itoa(i))
+	}
+}
+
 func WithLabel(label string) RequestOption {
 	return func(r *http.Request) {
 		urlAddParam(r, "with_label", label)

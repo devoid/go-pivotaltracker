@@ -7,7 +7,6 @@ package pivotal
 import (
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 )
 
@@ -21,12 +20,12 @@ type cursor struct {
 	requestFn requestFn
 	limit     int
 	offset    int
+	reqCount  int
 }
 
-// newCursor creates a new cursor to interate over an endpoint that
-// supports limit and offest request parameters.
-func newCursor(client *Client, fn requestFn, limit int) (c *cursor, err error) {
-	return &cursor{client: client, requestFn: fn, limit: limit}, nil
+func newCursor(client *Client, fn requestFn) (c *cursor, err error) {
+	// Default to 10 items, which seems to be what Pivotal natively returns.
+	return &cursor{client: client, requestFn: fn, limit: 10}, nil
 }
 
 // next is called with a pointer to an []*Type, which will be correctly
@@ -37,17 +36,29 @@ func (c *cursor) next(v interface{}) (resp *http.Response, err error) {
 
 	req := c.requestFn()
 
-	// Set the URL limit=X,offset=Y
-	values, err := url.ParseQuery(req.URL.RawQuery)
-	if err != nil {
-		return nil, err
+	// Note: if we've already made requests, we always update
+	// the limit and offset fields to the current value. If we've
+	// never made requests the user may have set these values
+	// in requestFn; So we honor that decision the first time.
+	values := req.URL.Query()
+	if c.reqCount != 0 {
+		values.Set("limit", strconv.Itoa(c.limit))
+		values.Set("offset", strconv.Itoa(c.offset))
+
+	} else {
+		if values.Get("limit") == "" {
+			values.Set("limit", strconv.Itoa(c.limit))
+		}
+		if values.Get("offset") == "" {
+			values.Set("offset", strconv.Itoa(c.offset))
+		}
 	}
-	values.Set("limit", strconv.Itoa(c.limit))
-	values.Set("offset", strconv.Itoa(c.offset))
 	req.URL.RawQuery = values.Encode()
 
 	// Do the request, decode JSON to v
 	resp, err = c.client.Do(req, &v)
+	// increment request counter
+	c.reqCount++
 	if err != nil {
 		return nil, err
 	}

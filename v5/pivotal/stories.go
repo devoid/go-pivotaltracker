@@ -150,7 +150,7 @@ func (s *StoryService) Iterate(opts ...RequestOption) (c *StoryCursor, err error
 		req, _ = s.setupReq(opts)
 		return req
 	}
-	cc, err := newCursor(s.client, req_fn, 10)
+	cc, err := newCursor(s.client, req_fn)
 	return &StoryCursor{cc, make([]*Story, 0)}, err
 }
 

@@ -52,7 +52,7 @@ func (s *IterationService) List(opts ...RequestOption) ([]*Iteration, *http.Resp
 		req, _ = s.setupReq(opts...)
 		return req
 	}
-	cc, err := newCursor((s).Client, req_fn, 10)
+	cc, err := newCursor((s).Client, req_fn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,7 +100,7 @@ func (s *IterationService) Iterate(opts ...RequestOption) (c *IterationCursor, e
 		req, _ = s.setupReq(opts...)
 		return req
 	}
-	cc, err := newCursor((s).Client, req_fn, 10)
+	cc, err := newCursor((s).Client, req_fn)
 	return &IterationCursor{cc, make([]*Iteration, 0)}, err
 }
 
